@@ -2,10 +2,27 @@
 #
 # Tristan Fisher <tfisher@amplify.com>
 #
-# Bash script to expediate && bootstrap the chef-solo -> chef-server process
+# Description:
+#   Bash script to expediate && bootstrap the chef-solo -> chef-server process
+# 
+#   This also fixes a build issue in the bootstrap script that presents the error:
+#   FATAL: Chef::Exceptions::Exec: user[chef] (chef-server::rubygems-install line 30) had an error: Chef::Exceptions::Exec: useradd -s '/bin/sh' -d '/var/lib/chef' -r chef returned 9, expected 0 
+#
+# If the rubygems-install existed at : https://github.com/opscode-cookbooks/chef-server , I'd submit a patch, but perhaps we're meant to use omnibus now?  
+# Either way, if you have the file from http://s3.amazonaws.com/chef-solo/bootstrap-latest.tar.gz, you could also change 
+# cookbooks/chef-server/recipes/rubygems-install.rb to look like:
+#
+# 30 user "chef" do
+# 31   system true
+# 32   gid "chef"
+# 33   shell "/bin/sh"
+# 34   home node['chef_server']['path']
+# 35 end
 #
 
 #TODO: store the downloads and process in two steps to allow for quicker retries
+#TODO: switch this from a quick hack to a multi-versioned option
+
 
 #Lazy for now - should check -w for all files
 if (( $EUID !=0 )); then
@@ -17,9 +34,10 @@ if (( $EUID !=0 )); then
   exit 
 fi
 
-#Some helper functions:
 #Don't indefinitely wait for user input
 TIMEOUT=5
+
+#Some helper functions:
 
 function confirm {
   for x in "$@"
@@ -65,7 +83,6 @@ function exists {
 #Echo send off a quick warning:
 echo "[Warning] Commands automatically confirm after 5 seconds" && sleep 5
 
-
 #Java is often not in the base apt-get
 OS=$(lsb_release -si)
 ARCH=$(uname -m | sed 's/x86_//;s/i[3-6]86/32/')
@@ -103,12 +120,11 @@ echo " $HOME/chef.json written"
 
 #confirm "Most installations do not have gecode pre-installed.  Update repos and do that now?"
 #grep out later for version release name.. ubuntu 12.10 = quantal-0.10/
-#annoyingly, this does not line up cleanly to release formats of just dists/quantal or anything from lsb_release.
+#this does not line up cleanly to release formats of just dists/quantal or anything from lsb_release.
 
 #if [[ $? == 0 ]]; then
 #  echo "http://apt.opscode.com quantal-0.10 main" > /etc/apt/sources.list.d/opscode.list
 #  echo "deb-src http://apt.opscode.com quantal-0.10 main" > /etc/apt/sources.list.d/opscode.list
-#
 #  curl http://apt.opscode.com/packages@opscode.com.gpg.key | sudo apt-key add -
 #  sudo apt-get update
 #  sudo apt-get install libgecode-dev
